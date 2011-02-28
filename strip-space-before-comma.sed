@@ -1,6 +1,8 @@
 # Usage:
 # find . -name '*.py' | xargs sed -i -r -f strip-space-before-comma.sed
 
-# Remove tabs and 2 or more spaces at end of line
+# Remove space before comma
 s/ ,/,/g 
+# Add space after comma
+s/,([^ ])/, \1/g 
 
