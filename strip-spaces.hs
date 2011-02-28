@@ -234,7 +234,7 @@ test = mapM_ test' [-- Parenthesis.
   where
     test' :: (String, String) -> IO()
     test' (a, b) = let a' = stripSpacesFromString a in 
-		     if (a' == a) || (a' == b)
+		     if (a' == a && b == "") || (a' == b)
 		       then print True
 		       else do putStrLn "\nInput:"
 			       putStrLn a
