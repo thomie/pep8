@@ -54,6 +54,7 @@ pythonCode :: Parser [Char] -> Int -> Int -> Parser [Char]
 pythonCode charParser level n_spaces = do
     termOrChar <- try (parens2 level n_spaces) <|>
                   try (brackets2 level n_spaces) <|>
+                  try (removeSpacesAroundEqualsSign level) <|>
                   charParser
     rest <- pythonCode charParser level n_spaces
     return $ termOrChar ++ rest
@@ -128,6 +129,17 @@ anyCharAsString = do
     c <- anyChar
     return $ c:[]
 
+-- Python default arguments: foo(bar = baz)
+removeSpacesAroundEqualsSign :: Int -> Parser [Char]
+removeSpacesAroundEqualsSign level = 
+    if level == 1
+        then do
+            char ' '
+	    char '='
+	    char ' '
+	    return "="
+        else
+            mzero
 
 -------------------- HELPERS ------------------------
 
@@ -207,6 +219,10 @@ test = mapM_ test' [
     -- Keep space after newline outside of term.
     ("foo\n bar", ""),
     ("foo[ bar\n baz", ""),
+
+    -- Remove spaces for default arguments
+    ("foo(bar = baz)", "foo(bar=baz)"),
+    ("bar = baz", ""),
 
     -- From epdp/utils.py.
     -- Strip at most 1 space after opener to preserve layout.
