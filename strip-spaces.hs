@@ -20,8 +20,8 @@ import System.IO
 -------------------- MAIN ------------------------
 
 main = do
-  files <- getArgs
-  mapM_ stripSpacesFromFile files
+    files <- getArgs
+    mapM_ stripSpacesFromFile files
 
 -- Read from stdin, write to stdout.
 --main = interact stripSpacesFromString
@@ -33,16 +33,17 @@ main = do
 stripSpacesFromFile :: String -> IO()
 stripSpacesFromFile file = do
     exists <- doesFileExist file
-    when exists $ do input <- readFile file
-		     let output = stripSpacesFromString input
-		     forceList output `seq` writeFile file output
+    when exists $ do
+        input <- readFile file
+        let output = stripSpacesFromString input
+        forceList output `seq` writeFile file output
 
 -- Strip spaces between parenthesis and brackets from string.
 stripSpacesFromString :: String -> String
 stripSpacesFromString input =
-  case parse (pythonCode anyCharAsString 0) "" input of
-    --Todo: Left err -> err
-    Right output -> output
+    case parse (pythonCode anyCharAsString 0) "" input of
+        --Todo: Left err -> err
+        Right output -> output
 
 -- Match Python code.
 -- The first character is either the beginning of a parens term, a brackets 
@@ -50,10 +51,13 @@ stripSpacesFromString input =
 -- The integer `level` counts the level of nestings.
 pythonCode :: Parser [Char] -> Int -> Parser [Char]
 pythonCode charParser level = do
-  termOrChar <- try (parens2 level) <|> try (brackets2 level) <|> charParser
-  rest <- pythonCode charParser level
-  return $ termOrChar ++ rest
-  <|> return ""
+    termOrChar <- try (parens2 level) <|>
+                  try (brackets2 level) <|>
+                  charParser
+    rest <- pythonCode charParser level
+    return $ termOrChar ++ rest
+  <|>
+    return ""
 
 -- Match parentheses and content in between.
 parens2 = term ('(',')')
@@ -65,54 +69,63 @@ brackets2 = term ('[',']')
 -- Remove `level` spaces after a newline if a newline is found.
 term :: (Char, Char) -> Int -> Parser [Char]
 term (cOpen, cClose) level = do
-  (open, newLevel) <- opener cOpen level
-  let newCharParser = newlineOrAnyCharAsStringExcept (closer cClose) newLevel
-  content <- pythonCode newCharParser newLevel
-  close <- closer cClose
-  return $ open:[] ++ content ++ close
+    (open, newLevel) <- opener cOpen level
+    let newCharParser = newlineOrAnyCharAsStringExcept (closer cClose) newLevel
+    content <- pythonCode newCharParser newLevel
+    close <- closer cClose
+    return $ open:[] ++ content ++ close
 
 -- Match character cOpen, remove at most one space and count how many.
 opener :: Char -> Int -> Parser (Char, Int)
-opener cOpen level = do char cOpen
-			n_spaces <- option 0 (char ' ' >> return 1)
-			return (cOpen, level + n_spaces)
+opener cOpen level = do
+    char cOpen
+    n_spaces <- option 0 (char ' ' >> return 1)
+    return (cOpen, level + n_spaces)
 
 -- Remove spaces and match character cClose.
 closer :: Char -> Parser [Char]
-closer cClose = do beforeClose <- closeOptions
-		   char cClose
-		   return $ beforeClose ++ cClose:[]
+closer cClose = do
+    beforeClose <- closeOptions
+    char cClose
+    return $ beforeClose ++ cClose:[]
   
 -- Match some edge cases.
 -- Don't remove spaces before single closer after a newline.
 -- Keep one space between a comma and the character cClose [1, 2, 3, ].
-closeOptions = do char '\n'
-		  spaces <- many $ char ' '
-		  return $ '\n':spaces
-	   <|> do char ','
-		  skipMany $ char ' '
-		  return ", "
-	   <|> do skipMany $ char ' '
-		  return ""
+closeOptions = do
+    char '\n'
+    spaces <- many $ char ' '
+    return $ '\n':spaces
+  <|> do
+    char ','
+    skipMany $ char ' '
+    return ", "
+  <|> do
+    skipMany $ char ' '
+    return ""
 
 -- Match newline or any char as string except exclude.
 -- Remove `level` spaces after newline.
 newlineOrAnyCharAsStringExcept :: Parser [Char] -> Int -> Parser [Char]
-newlineOrAnyCharAsStringExcept exclude level = do notFollowedBy' exclude
-						  char '\n'
-						  count level $ char ' '
-						  return "\n"
-					   <|> anyCharAsStringExcept exclude
+newlineOrAnyCharAsStringExcept exclude level = do 
+    notFollowedBy' exclude
+    char '\n'
+    count level $ char ' '
+    return "\n"
+  <|>
+    anyCharAsStringExcept exclude
 
 -- Match any char as string except exclude.
 anyCharAsStringExcept :: Parser [Char] -> Parser [Char]
-anyCharAsStringExcept exclude = do notFollowedBy' exclude
-				   anyCharAsString
+anyCharAsStringExcept exclude = do
+    notFollowedBy' exclude
+    anyCharAsString
 
 -- Match any char, return as string.
 anyCharAsString :: Parser [Char]
-anyCharAsString = do c <- anyChar
-		     return $ c:[]
+anyCharAsString = do
+    c <- anyChar
+    return $ c:[]
 
 
 -------------------- HELPERS ------------------------
@@ -135,10 +148,11 @@ forceList (x:xs) = forceList xs `seq` (x:xs)
 -- A solution to this found here:
 -- http://www.haskell.org/pipermail/haskell/2004-February/013632.html
 notFollowedBy' :: Show a => GenParser tok st a -> GenParser tok st ()
-notFollowedBy' p  = try $ join $  do  a <- try p
-				      return (unexpected (show a))
-				  <|>
-				  return (return ())
+notFollowedBy' p  = try $ join $ do 
+    a <- try p
+    return (unexpected (show a))
+  <|>
+    return (return ())
 
 -- Todo: parens and brackets are also defined here, but a bit different:
 -- http://hackage.haskell.org/packages/archive/parsec/3.0.0/doc/html/Text-ParserCombinators-Parsec-Token.html
@@ -146,51 +160,52 @@ notFollowedBy' p  = try $ join $  do  a <- try p
 
 -------------------- TESTS ------------------------
 
-test = mapM_ test' [-- Parenthesis.
-		    ("foo( bar )baz", "foo(bar)baz"),
+test = mapM_ test' [
+    -- Parenthesis.
+    ("foo( bar )baz", "foo(bar)baz"),
 
-		    -- Brackets.
-		    ("foo[ bar ]baz", "foo[bar]baz"),
+    -- Brackets.
+    ("foo[ bar ]baz", "foo[bar]baz"),
 
-		    -- Unbalanced spaces.
-		    ("foo[ bar]baz", "foo[bar]baz"),
-		    ("foo[bar ]baz", "foo[bar]baz"),
+    -- Unbalanced spaces.
+    ("foo[ bar]baz", "foo[bar]baz"),
+    ("foo[bar ]baz", "foo[bar]baz"),
 
-		    -- Only one, do nothing.
-		    ("foo[ bar", ""),
-		    ("foo ]bar", ""),
+    -- Only one, do nothing.
+    ("foo[ bar", ""),
+    ("foo ]bar", ""),
 
-		    -- Not matching.
-		    ("foo[ bar ] ]baz", "foo[bar] ]baz"),
-		    ("foo[ [ bar ]baz", "foo[ [bar]baz"),
+    -- Not matching.
+    ("foo[ bar ] ]baz", "foo[bar] ]baz"),
+    ("foo[ [ bar ]baz", "foo[ [bar]baz"),
 
-		    -- Empty lists.
-		    ("foo[ ]", "foo[]"),
-		    ("foo[  ]", "foo[]"),
+    -- Empty lists.
+    ("foo[ ]", "foo[]"),
+    ("foo[  ]", "foo[]"),
 
-		    -- Nested.
-		    ("foo[ [ bar ] ]baz", "foo[[bar]]baz"),
+    -- Nested.
+    ("foo[ [ bar ] ]baz", "foo[[bar]]baz"),
 
-		    -- Nested and different.
-		    ("foo( [ bar ] )baz", "foo([bar])baz"),
+    -- Nested and different.
+    ("foo( [ bar ] )baz", "foo([bar])baz"),
 
-		    -- Mix. It happens to ignore the first.
-		    ("foo( [ bar ) ]baz", "foo( [bar )]baz"),
-		    ("foo[ ( bar ] )baz", "foo[ (bar ])baz"),
+    -- Mix. It happens to ignore the first.
+    ("foo( [ bar ) ]baz", "foo( [bar )]baz"),
+    ("foo[ ( bar ] )baz", "foo[ (bar ])baz"),
 
-		    -- Final character is a comma of list.
-		    ("foo[ 1,2,3,  ]", "foo[1,2,3, ]"),
-		    ("foo[,]", "foo[, ]"),
+    -- Final character is a comma of list.
+    ("foo[ 1,2,3,  ]", "foo[1,2,3, ]"),
+    ("foo[,]", "foo[, ]"),
 
-		    -- Remove space after newline within term.
-		    ("foo[ bar\n     baz ]", "foo[bar\n    baz]"),
+    -- Remove space after newline within term.
+    ("foo[ bar\n     baz ]", "foo[bar\n    baz]"),
 
-		    -- Remove two spaces after newline within nested term.
-		    ("foo[ [ bar\n       baz ] ]", "foo[[bar\n     baz]]"),
+    -- Remove two spaces after newline within nested term.
+    ("foo[ [ bar\n       baz ] ]", "foo[[bar\n     baz]]"),
 
-		    -- Keep space after newline outside of term.
-		    ("foo\n bar", ""),
-		    ("foo[ bar\n baz", ""),
+    -- Keep space after newline outside of term.
+    ("foo\n bar", ""),
+    ("foo[ bar\n baz", ""),
 
     -- From epdp/utils.py.
     -- Strip at most 1 space after opener to preserve layout.
@@ -231,17 +246,20 @@ test = mapM_ test' [-- Parenthesis.
      \    'get_raw'\n\
      \    )", "")]
 
-  where
+    where
     test' :: (String, String) -> IO()
-    test' (a, b) = let a' = stripSpacesFromString a in 
-		     if (a' == a && b == "") || (a' == b)
-		       then print True
-		       else do putStrLn "\nInput:"
-			       putStrLn a
-			       putStrLn "\nExpected output:"
-			       putStrLn b
-			       putStrLn "\nOutput:"
-			       putStrLn a'
-			       putStrLn "\n"
+    test' (a, b) =
+        let a' = stripSpacesFromString a in 
+        if (a' == a && b == "") || (a' == b)
+            then
+                print True
+            else do
+                putStrLn "\nInput:"
+                putStrLn a
+                putStrLn "\nExpected output:"
+                putStrLn b
+                putStrLn "\nOutput:"
+                putStrLn a'
+                putStrLn "\n"
 
 
