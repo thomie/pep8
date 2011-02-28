@@ -41,20 +41,21 @@ stripSpacesFromFile file = do
 -- Strip spaces between parenthesis and brackets from string.
 stripSpacesFromString :: String -> String
 stripSpacesFromString input =
-    case parse (pythonCode anyCharAsString 0) "" input of
+    case parse (pythonCode anyCharAsString 0 0) "" input of
         --Todo: Left err -> err
         Right output -> output
 
 -- Match Python code.
 -- The first character is either the beginning of a parens term, a brackets 
 -- term, or just any character (the starting charParser is anyCharAsString).
+-- The integer `level` counts the level of nestings.
 -- The integer `n_spaces` counts the number of spaces that need to be removed.
-pythonCode :: Parser [Char] -> Int -> Parser [Char]
-pythonCode charParser n_spaces = do
-    termOrChar <- try (parens2 n_spaces) <|>
-                  try (brackets2 n_spaces) <|>
+pythonCode :: Parser [Char] -> Int -> Int -> Parser [Char]
+pythonCode charParser level n_spaces = do
+    termOrChar <- try (parens2 level n_spaces) <|>
+                  try (brackets2 level n_spaces) <|>
                   charParser
-    rest <- pythonCode charParser n_spaces
+    rest <- pythonCode charParser level n_spaces
     return $ termOrChar ++ rest
   <|>
     return ""
@@ -67,20 +68,20 @@ brackets2 = term ('[',']')
 
 -- Match cOpen, content, cClose.
 -- Remove `n_spaces` spaces after a newline if a newline is found.
-term :: (Char, Char) -> Int -> Parser [Char]
-term (cOpen, cClose) n_spaces = do
-    (open, newSpaces) <- opener cOpen n_spaces
+term :: (Char, Char) -> Int -> Int -> Parser [Char]
+term (cOpen, cClose) level n_spaces = do
+    (open, newLevel, newSpaces) <- opener cOpen level n_spaces
     let newCharParser = newlineOrAnyCharAsStringExcept (closer cClose) newSpaces
-    content <- pythonCode newCharParser newSpaces
+    content <- pythonCode newCharParser newLevel newSpaces
     close <- closer cClose
     return $ open:[] ++ content ++ close
 
 -- Match character cOpen, remove at most one space and count how many.
-opener :: Char -> Int -> Parser (Char, Int)
-opener cOpen n_spaces = do
+opener :: Char -> Int -> Int -> Parser (Char, Int, Int)
+opener cOpen level n_spaces = do
     char cOpen
     extra_spaces <- option 0 (char ' ' >> return 1)
-    return (cOpen, n_spaces + extra_spaces)
+    return (cOpen, level + 1, n_spaces + extra_spaces)
 
 -- Remove spaces and match character cClose.
 closer :: Char -> Parser [Char]
