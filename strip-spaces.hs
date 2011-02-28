@@ -48,13 +48,13 @@ stripSpacesFromString input =
 -- Match Python code.
 -- The first character is either the beginning of a parens term, a brackets 
 -- term, or just any character (the starting charParser is anyCharAsString).
--- The integer `level` counts the level of nestings.
+-- The integer `n_spaces` counts the number of spaces that need to be removed.
 pythonCode :: Parser [Char] -> Int -> Parser [Char]
-pythonCode charParser level = do
-    termOrChar <- try (parens2 level) <|>
-                  try (brackets2 level) <|>
+pythonCode charParser n_spaces = do
+    termOrChar <- try (parens2 n_spaces) <|>
+                  try (brackets2 n_spaces) <|>
                   charParser
-    rest <- pythonCode charParser level
+    rest <- pythonCode charParser n_spaces
     return $ termOrChar ++ rest
   <|>
     return ""
@@ -66,21 +66,21 @@ parens2 = term ('(',')')
 brackets2 = term ('[',']')
 
 -- Match cOpen, content, cClose.
--- Remove `level` spaces after a newline if a newline is found.
+-- Remove `n_spaces` spaces after a newline if a newline is found.
 term :: (Char, Char) -> Int -> Parser [Char]
-term (cOpen, cClose) level = do
-    (open, newLevel) <- opener cOpen level
-    let newCharParser = newlineOrAnyCharAsStringExcept (closer cClose) newLevel
-    content <- pythonCode newCharParser newLevel
+term (cOpen, cClose) n_spaces = do
+    (open, newSpaces) <- opener cOpen n_spaces
+    let newCharParser = newlineOrAnyCharAsStringExcept (closer cClose) newSpaces
+    content <- pythonCode newCharParser newSpaces
     close <- closer cClose
     return $ open:[] ++ content ++ close
 
 -- Match character cOpen, remove at most one space and count how many.
 opener :: Char -> Int -> Parser (Char, Int)
-opener cOpen level = do
+opener cOpen n_spaces = do
     char cOpen
-    n_spaces <- option 0 (char ' ' >> return 1)
-    return (cOpen, level + n_spaces)
+    extra_spaces <- option 0 (char ' ' >> return 1)
+    return (cOpen, n_spaces + extra_spaces)
 
 -- Remove spaces and match character cClose.
 closer :: Char -> Parser [Char]
@@ -105,12 +105,12 @@ closeOptions = do
     return ""
 
 -- Match newline or any char as string except exclude.
--- Remove `level` spaces after newline.
+-- Remove `n_spaces` spaces after newline.
 newlineOrAnyCharAsStringExcept :: Parser [Char] -> Int -> Parser [Char]
-newlineOrAnyCharAsStringExcept exclude level = do 
+newlineOrAnyCharAsStringExcept exclude n_spaces = do 
     notFollowedBy' exclude
     char '\n'
-    count level $ char ' '
+    count n_spaces $ char ' '
     return "\n"
   <|>
     anyCharAsStringExcept exclude
